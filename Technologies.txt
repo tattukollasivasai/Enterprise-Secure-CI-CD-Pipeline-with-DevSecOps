@@ -1,0 +1,15 @@
+| Category        | Tool                         |
+| --------------- | ---------------------------- |
+| Source Control  | GitHub                       |
+| CI/CD           | Jenkins                      |
+| Code Quality    | SonarQube                    |
+| Secret Scan     | GitLeaks                     |
+| Dependency Scan | OWASP Dependency Check       |
+| Container       | Docker                       |
+| Container Scan  | Trivy                        |
+| Registry        | Docker Hub                   |
+| Orchestration   | Kubernetes (Minikube or EKS) |
+| Package Manager | Helm                         |
+| Notification    | Slack                        |
+| Build Tool      | Maven / npm                  |
+| OS              | Ubuntu                       |
