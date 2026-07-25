@@ -1,0 +1,37 @@
+Developer
+      │
+      ▼
+ GitHub Repository
+      │
+      ▼
+ Jenkins Pipeline
+      │
+ ┌────┴───────────────────────────────────────────┐
+ │                                                │
+ ▼                                                ▼
+GitLeaks                                    SonarQube
+ │                                                │
+ ▼                                                ▼
+Secret Scan                             Code Quality Scan
+ │                                                │
+ └───────────────┬────────────────────────────────┘
+                 ▼
+      OWASP Dependency Check
+                 │
+                 ▼
+          Build Docker Image
+                 │
+                 ▼
+            Trivy Scan
+                 │
+                 ▼
+        Push to Docker Hub
+                 │
+                 ▼
+        Deploy to Kubernetes
+                 │
+                 ▼
+        Verify Deployment
+                 │
+                 ▼
+      Slack / Email Notification
