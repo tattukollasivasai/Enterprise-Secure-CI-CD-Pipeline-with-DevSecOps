@@ -1,0 +1,178 @@
+// pipeline {
+//     agent any
+
+//     environment {
+//         REGISTRY = 'sivasait25/secure-devsecops-pipeline'
+//         IMAGE_TAG = "${BUILD_NUMBER}"
+//         HELM_RELEASE = 'devsecops-release'
+//     }
+
+//     stages {
+//         stage('Checkout Code') {
+//             steps {
+//                 git branch: 'dev', url: 'https://github.com/tattukollasivasai/Enterprise-Secure-CI-CD-Pipeline-with-DevSecOps.git'
+//             }
+//         }
+
+//         stage('Build & Test') {
+//             steps {
+//                 sh 'mvn clean package'
+//             }
+//         }
+
+//         stage('Build Docker Image') {
+//             steps {
+//                 sh "docker build -t ${REGISTRY}:${IMAGE_TAG} ."
+//                 sh "docker tag ${REGISTRY}:${IMAGE_TAG} ${REGISTRY}:latest"
+//             }
+//         }
+
+//         stage('Push Docker Image') {
+//             steps {
+//                 withCredentials([usernamePassword(credentialsId: 'docker-hub-credentials', usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
+//                     sh "echo $DOCKER_PASS | docker login -u $DOCKER_USER --password-stdin"
+//                     sh "docker push ${REGISTRY}:${IMAGE_TAG}"
+//                     sh "docker push ${REGISTRY}:latest"
+//                 }
+//             }
+//         }
+
+//         stage('Deploy with Helm & Kubectl') {
+//             steps {
+//                 sh """
+//                 helm upgrade --install ${HELM_RELEASE} ./helm/devsecops-app \
+//                   --set image.repository=${REGISTRY} \
+//                   --set image.tag=${IMAGE_TAG}
+//                 """
+//                 sh "kubectl get pods"
+//                 sh "kubectl get svc"
+//             }
+//         }
+//     }
+// }
+pipeline {
+    agent any
+
+    environment {
+        REGISTRY = "sivasait25/secure-devsecops-pipeline"
+        IMAGE_TAG = "${BUILD_NUMBER}"
+        HELM_RELEASE = "devsecops-release"
+    }
+
+    tools {
+        maven "Maven"
+        jdk "JDK17"
+    }
+
+    stages {
+
+        stage('Checkout Code') {
+            steps {
+                git branch: 'dev',
+                    url: 'https://github.com/tattukollasivasai/Enterprise-Secure-CI-CD-Pipeline-with-DevSecOps.git'
+            }
+        }
+
+        stage('Build Application') {
+            steps {
+                sh 'mvn clean package -DskipTests'
+            }
+        }
+
+        stage('SonarQube Analysis') {
+            steps {
+                withSonarQubeEnv('SonarQube') {
+                    sh '''
+                    mvn sonar:sonar \
+                    -Dsonar.projectKey=secure-devsecops-pipeline \
+                    -Dsonar.projectName=secure-devsecops-pipeline
+                    '''
+                }
+            }
+        }
+
+        stage('Quality Gate') {
+            steps {
+                timeout(time: 5, unit: 'MINUTES') {
+                    waitForQualityGate abortPipeline: true
+                }
+            }
+        }
+
+        stage('Trivy File System Scan') {
+            steps {
+                sh 'trivy fs .'
+            }
+        }
+
+        stage('Build Docker Image') {
+            steps {
+                sh "docker build -t ${REGISTRY}:${IMAGE_TAG} ."
+                sh "docker tag ${REGISTRY}:${IMAGE_TAG} ${REGISTRY}:latest"
+            }
+        }
+
+        stage('Trivy Docker Image Scan') {
+            steps {
+                sh "trivy image ${REGISTRY}:${IMAGE_TAG}"
+            }
+        }
+
+        stage('Docker Login') {
+            steps {
+                withCredentials([
+                    usernamePassword(
+                        credentialsId: 'dockerhub-creds',
+                        usernameVariable: 'DOCKER_USER',
+                        passwordVariable: 'DOCKER_PASS'
+                    )
+                ]) {
+                    sh '''
+                    echo "$DOCKER_PASS" | docker login \
+                    -u "$DOCKER_USER" \
+                    --password-stdin
+                    '''
+                }
+            }
+        }
+
+        stage('Push Docker Image') {
+            steps {
+                sh "docker push ${REGISTRY}:${IMAGE_TAG}"
+                sh "docker push ${REGISTRY}:latest"
+            }
+        }
+
+        stage('Deploy to Kubernetes') {
+            steps {
+                sh """
+                helm upgrade --install ${HELM_RELEASE} ./helm/devsecops-app \
+                --set image.repository=${REGISTRY} \
+                --set image.tag=${IMAGE_TAG}
+                """
+            }
+        }
+
+        stage('Verify Deployment') {
+            steps {
+                sh "kubectl get pods"
+                sh "kubectl get svc"
+            }
+        }
+    }
+
+    post {
+
+        always {
+            cleanWs()
+        }
+
+        success {
+            echo "Pipeline executed successfully."
+        }
+
+        failure {
+            echo "Pipeline execution failed."
+        }
+    }
+}
