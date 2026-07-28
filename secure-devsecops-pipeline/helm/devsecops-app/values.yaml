@@ -1,0 +1,11 @@
+replicaCount: 1
+
+image:
+  repository: your-dockerhub-username/secure-devsecops-pipeline
+  tag: latest
+  pullPolicy: Always
+
+service:
+  type: ClusterIP
+  port: 8080
+  targetPort: 8080
